@@ -30,6 +30,7 @@
 		17686196248F670D0088A6E4 /* EmojiArtDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiArtDocument.swift; sourceTree = "<group>"; };
 		17686199248F69E30088A6E4 /* EmojiArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiArt.swift; sourceTree = "<group>"; };
 		1768619D248F6CA70088A6E4 /* EmojiArtExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EmojiArtExtensions.swift; sourceTree = "<group>"; };
+		1768619F248F76750088A6E4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,6 +47,7 @@
 		17686176248F666C0088A6E4 = {
 			isa = PBXGroup;
 			children = (
+				1768619F248F76750088A6E4 /* README.md */,
 				17686181248F666C0088A6E4 /* EmojiArt */,
 				17686180248F666C0088A6E4 /* Products */,
 			);
