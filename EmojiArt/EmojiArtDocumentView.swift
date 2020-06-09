@@ -33,12 +33,18 @@ struct EmojiArtDocumentView: View {
                             .scaleEffect(self.zoomScale)
                             .offset(self.panOffset)
                     )
-                    .gesture(self.doubleTapToZoom(in: geometry.size))
+                    .gesture(
+                        self.doubleTapToZoom(in: geometry.size)
+                            .exclusively(before: self.singleTapForSelection(for: nil))
+                    )
 
                     ForEach(self.document.emojis) { emoji in
                         Text(emoji.text)
-                            .font(animatableWithSize: emoji.fontSize * self.zoomScale)
+                            .font(animatableWithSize: emoji.fontSize * self.zoomScale(for: emoji))
                             .position(self.position(for: emoji, in: geometry.size))
+                            .gesture(self.singleTapForSelection(for: emoji))
+                            .gesture(self.dragSelectionEmoji(for: emoji))
+                            .shadow(color: self.isEmojiSelected(emoji) ? .blue : .clear, radius: 10 * self.zoomScale(for: emoji))
                     }
                 }
                 .clipped()
@@ -62,7 +68,16 @@ struct EmojiArtDocumentView: View {
     @GestureState private var gestureZoomScale: CGFloat = 1.0
 
     private var zoomScale: CGFloat {
-        steadyStateZoomScale * gestureZoomScale
+        steadyStateZoomScale * (hasSelection ? 1 : gestureZoomScale)
+    }
+
+    private func zoomScale(for emoji: EmojiArt.Emoji) -> CGFloat {
+        if isEmojiSelected(emoji) {
+            return steadyStateZoomScale * gestureZoomScale
+        }
+        else {
+            return zoomScale
+        }
     }
 
     private func zoomGesture() -> some Gesture {
@@ -71,7 +86,16 @@ struct EmojiArtDocumentView: View {
                 gestureZoomScale = latestGestureScale
             })
             .onEnded { finalGestureScale in
-                self.steadyStateZoomScale *= finalGestureScale
+                if self.hasSelection {
+                    self.selectedEmojiIDs.forEach { (emojiId) in
+                        if let emoji = self.document.emojis.first(where: {$0.id == emojiId }) {
+                            self.document.scaleEmoji(emoji, by: finalGestureScale)
+                        }
+                    }
+                }
+                else {
+                    self.steadyStateZoomScale *= finalGestureScale
+                }
             }
     }
 
@@ -115,6 +139,9 @@ struct EmojiArtDocumentView: View {
         location = CGPoint(x: location.x * zoomScale, y: location.y * zoomScale)
         location = CGPoint(x: location.x + size.width/2, y: location.y + size.height/2)
         location = CGPoint(x: location.x + panOffset.width, y: location.y + panOffset.height)
+        if gestureStateSelectedEmoji.singleEmoji?.id == emoji.id || (gestureStateSelectedEmoji.singleEmoji == nil && isEmojiSelected(emoji)) {
+            location = CGPoint(x: location.x + gestureStateSelectedEmoji.offset.width, y: location.y + gestureStateSelectedEmoji.offset.height)
+        }
         return location
     }
 
@@ -128,6 +155,59 @@ struct EmojiArtDocumentView: View {
             }
         }
         return found
+    }
+
+    // Used to store the current selection (only IDs of emojis)
+    @State private var selectedEmojiIDs = Set<EmojiArt.Emoji.ID>()
+
+    private var hasSelection: Bool {
+        !selectedEmojiIDs.isEmpty
+    }
+
+    private func isEmojiSelected(_ emoji: EmojiArt.Emoji) -> Bool {
+        selectedEmojiIDs.contains(emoji.id)
+    }
+
+    // Tap gesture recognizer for handling one tap selection/deselection and clear
+    // if emoji is nil, the action is to clear the selection.
+    private func singleTapForSelection(for emoji: EmojiArt.Emoji?) -> some Gesture {
+        TapGesture(count: 1)
+            .onEnded {
+                withAnimation(Animation.easeInOut(duration: 0.3)) {
+                    if let emoji = emoji {
+                        self.selectedEmojiIDs.toggle(emoji.id)
+                    }
+                    else {
+                        self.selectedEmojiIDs.removeAll()
+                    }
+                }
+            }
+    }
+
+    // Temporary state for selection drag gesture
+    @GestureState private var gestureStateSelectedEmoji: (offset: CGSize, singleEmoji: EmojiArt.Emoji?) = (.zero, nil)
+
+    private func dragSelectionEmoji(for emoji: EmojiArt.Emoji) -> some Gesture {
+        let startedWithSelection = self.isEmojiSelected(emoji)
+        let draggingEmoji = startedWithSelection ? nil : emoji
+        return DragGesture()
+            .updating($gestureStateSelectedEmoji, body: { (latestDragGestureValue, gestureStateSelectedEmoji, transaction) in
+                let translation = latestDragGestureValue.translation
+                gestureStateSelectedEmoji = (translation, draggingEmoji)
+            })
+            .onEnded { finalDragGestureValue in
+                let translation = finalDragGestureValue.translation / self.zoomScale
+                if startedWithSelection {
+                    self.selectedEmojiIDs.forEach { (emojiId) in
+                        if let emoji = self.document.emojis.first(where: {$0.id == emojiId }) {
+                            self.document.moveEmoji(emoji, by: translation)
+                        }
+                    }
+                }
+                else {
+                    self.document.moveEmoji(emoji, by: translation)
+                }
+        }
     }
 
     private let defaultEmojiSize: CGFloat = 40
