@@ -11,20 +11,25 @@ import SwiftUI
 struct EmojiArtDocumentView: View {
     @ObservedObject var document: EmojiArtDocument
 
+    @State private var chosenPalette: String = ""
+
     var body: some View {
         VStack {
-            ScrollView(.horizontal) {
-                HStack {
-                    ForEach(EmojiArtDocument.palette.map { String($0)}, id: \.self) { emoji in
-                        Text(emoji)
-                            .font(.system(size: self.defaultEmojiSize))
-                            .onDrag {
-                                return NSItemProvider(object: emoji as NSString)
-                            }
+            HStack {
+                PaletteChooser(document: document, chosenPalette: $chosenPalette)
+                    .onAppear { self.chosenPalette = self.document.defaultPalette }
+                ScrollView(.horizontal) {
+                    HStack {
+                        ForEach(chosenPalette.map { String($0)}, id: \.self) { emoji in
+                            Text(emoji)
+                                .font(.system(size: self.defaultEmojiSize))
+                                .onDrag {
+                                    return NSItemProvider(object: emoji as NSString)
+                                }
+                        }
                     }
                 }
             }
-            .padding(.horizontal)
 
             GeometryReader { geometry in
                 ZStack {
@@ -38,19 +43,29 @@ struct EmojiArtDocumentView: View {
                             .exclusively(before: self.singleTapForSelection(for: nil))
                     )
 
-                    ForEach(self.document.emojis) { emoji in
-                        Text(emoji.text)
-                            .font(animatableWithSize: emoji.fontSize * self.zoomScale(for: emoji))
-                            .position(self.position(for: emoji, in: geometry.size))
-                            .gesture(self.singleTapForSelection(for: emoji))
-                            .gesture(self.dragSelectionEmoji(for: emoji))
-                            .shadow(color: self.isEmojiSelected(emoji) ? .blue : .clear, radius: 10 * self.zoomScale(for: emoji))
+                    if self.isLoading {
+                        Image(systemName: "hourglass")
+                            .imageScale(.large)
+                            .spinning()
+                    }
+                    else {
+                        ForEach(self.document.emojis) { emoji in
+                            Text(emoji.text)
+                                .font(animatableWithSize: emoji.fontSize * self.zoomScale(for: emoji))
+                                .position(self.position(for: emoji, in: geometry.size))
+                                .gesture(self.singleTapForSelection(for: emoji))
+                                .gesture(self.dragSelectionEmoji(for: emoji))
+                                .shadow(color: self.isEmojiSelected(emoji) ? .blue : .clear, radius: 10 * self.zoomScale(for: emoji))
+                        }
                     }
                 }
                 .clipped()
                 .gesture(self.panGesture())
                 .gesture(self.zoomGesture())
                 .edgesIgnoringSafeArea([.horizontal, .bottom])
+                .onReceive(self.document.$backgroundImage, perform: { (image) in
+                    self.zoomToFit(image, in: geometry.size)
+                })
                 .onDrop(of: ["public.image", "public.text"], isTargeted: nil) { providers, location in
                     // SwiftUI bug (as of 13.4)? the location is supposed to be in our coordinate system
                     // however, the y coordinate appears to be in the global coordinate system
@@ -62,6 +77,10 @@ struct EmojiArtDocumentView: View {
                 }
             }
         }
+    }
+
+    var isLoading: Bool {
+        document.backgroundURL != nil && document.backgroundImage == nil
     }
 
     @State private var steadyStateZoomScale: CGFloat = 1.0
@@ -147,7 +166,7 @@ struct EmojiArtDocumentView: View {
 
     private func drop(providers: [NSItemProvider], at location: CGPoint) -> Bool {
         var found = providers.loadObjects(ofType: URL.self) { url in
-            self.document.setBackgroundURL(url)
+            self.document.backgroundURL = url
         }
         if !found {
             found = providers.loadObjects(ofType: String.self) { string in
