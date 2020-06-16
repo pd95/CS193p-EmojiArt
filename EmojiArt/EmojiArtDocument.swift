@@ -9,27 +9,43 @@
 import SwiftUI
 import Combine
 
-class EmojiArtDocument: ObservableObject {
+class EmojiArtDocument: ObservableObject, Hashable, Identifiable, Equatable
+{
+    let id: UUID
 
     static let palette: String = "⭐️🌧🍎🌍🥐⚾️"
-    static let untitled = "EmojiArtDocument.Untitled"
 
     @Published var emojiArt: EmojiArt
 
     @Published private(set) var backgroundImage: UIImage?
 
+    @Published var steadyStateZoomScale: CGFloat = 1.0
+    @Published var steadyStatePanOffset: CGSize = .zero
+
     var emojis: [EmojiArt.Emoji] { emojiArt.emojis }
 
     private var autosaveCancellable: AnyCancellable?
 
-    init() {
-        emojiArt = EmojiArt(json: UserDefaults.standard.data(forKey: EmojiArtDocument.untitled)) ?? EmojiArt()
+    init(id: UUID? = nil) {
+        self.id = id ?? UUID()
+        let defaultsKey = "EmojiArtDocument.\(self.id.uuidString)"
+        emojiArt = EmojiArt(json: UserDefaults.standard.data(forKey: defaultsKey)) ?? EmojiArt()
         autosaveCancellable = $emojiArt.sink { (emojiArt) in
-            UserDefaults.standard.set(emojiArt.json, forKey: EmojiArtDocument.untitled)
+            UserDefaults.standard.set(emojiArt.json, forKey: defaultsKey)
         }
         fetchBackgroundImageData()
     }
 
+    // MARK: - Equatable and Hashable
+
+    static func == (lhs: EmojiArtDocument, rhs: EmojiArtDocument) -> Bool {
+        // It's a class, we do not have to compare all properties
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 
     // MARK: - Intent(s)
 
