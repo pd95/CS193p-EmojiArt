@@ -50,7 +50,7 @@ struct PaletteEditor: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                Text("PaletteEditor")
+                Text("Palette Editor")
                     .font(.headline)
                     .padding()
                 HStack {
@@ -71,7 +71,7 @@ struct PaletteEditor: View {
                             self.document.renamePalette(self.chosenPalette, to: self.paletteName)
                         }
                     })
-                    TextField("Emojis to add", text: $emojiToAdd, onEditingChanged: { began in
+                    TextField("Add Emoji", text: $emojiToAdd, onEditingChanged: { began in
                         if !began {
                             self.chosenPalette = self.document.addEmoji(self.emojiToAdd, toPalette: self.chosenPalette)
                             self.emojiToAdd = ""
