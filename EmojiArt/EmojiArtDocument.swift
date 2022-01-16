@@ -84,6 +84,12 @@ class EmojiArtDocument: ObservableObject, Hashable, Identifiable, Equatable
         }
     }
 
+    func rotateEmoji(_ emoji: EmojiArt.Emoji, by rotation: CGFloat) {
+        if let index = emojiArt.emojis.firstIndex(matching: emoji) {
+            emojiArt.emojis[index].rotation = Double(CGFloat(emojiArt.emojis[index].rotation) + rotation)
+        }
+    }
+
     var backgroundURL: URL? {
         get {
             emojiArt.backgroundURL

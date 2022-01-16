@@ -56,6 +56,7 @@ struct EmojiArtDocumentView: View {
                         ForEach(self.document.emojis) { emoji in
                             Text(emoji.text)
                                 .font(animatableWithSize: emoji.fontSize * self.zoomScale(for: emoji))
+                                .rotationEffect(self.rotationAngle(for: emoji))
                                 .position(self.position(for: emoji, in: geometry.size))
                                 .gesture(self.singleTapForSelection(for: emoji))
                                 .gesture(self.dragSelectionEmoji(for: emoji))
@@ -65,7 +66,10 @@ struct EmojiArtDocumentView: View {
                 }
                 .clipped()
                 .gesture(self.panGesture())
-                .gesture(self.zoomGesture())
+                .gesture(
+                    self.zoomGesture()
+                        .simultaneously(with: self.rotationGesture())
+                )
                 .edgesIgnoringSafeArea([.horizontal, .bottom])
                 .onReceive(self.document.$backgroundImage, perform: { (image) in
                     self.zoomToFit(image, in: geometry.size)
@@ -175,6 +179,34 @@ struct EmojiArtDocumentView: View {
                     self.document.steadyStateZoomScale *= finalGestureScale
                 }
             }
+    }
+
+    @GestureState private var rotationAngle: Angle = .zero
+
+    private func rotationAngle(for emoji: EmojiArt.Emoji) -> Angle {
+        if isEmojiSelected(emoji) {
+            return Angle(radians: emoji.rotation) + rotationAngle
+        }
+        else {
+            return Angle(radians: emoji.rotation)
+        }
+    }
+
+    private func rotationGesture() -> some Gesture {
+        RotationGesture()
+            .updating($rotationAngle, body: { latestGestureAngle, rotationAngle, transaction in
+                rotationAngle = latestGestureAngle
+            })
+            .onEnded { finalGestureAngle in
+                if self.hasSelection {
+                    self.selectedEmojiIDs.forEach { (emojiId) in
+                        if let emoji = self.document.emojis.first(where: {$0.id == emojiId }) {
+                            self.document.rotateEmoji(emoji, by: finalGestureAngle.radians)
+                        }
+                    }
+                }
+            }
+
     }
 
     @GestureState private var gesturePanOffset: CGSize = .zero
