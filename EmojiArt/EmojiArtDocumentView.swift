@@ -74,10 +74,15 @@ struct EmojiArtDocumentView: View {
                 .onReceive(self.document.$backgroundImage, perform: { (image) in
                     self.zoomToFit(image, in: geometry.size)
                 })
-                .onDrop(of: ["public.image", "public.text"], isTargeted: nil) { providers, location in
-                    // SwiftUI bug (as of 13.4)? the location is supposed to be in our coordinate system
-                    // however, the y coordinate appears to be in the global coordinate system
-                    var location = CGPoint(x: location.x, y: geometry.convert(location, from: .global).y)
+                .onDrop(of: ["public.image", "public.text"], isTargeted: nil) { providers, targetLocation in
+                    var location: CGPoint
+                    if #available(iOS 14, *) {
+                        location = targetLocation
+                    } else {
+                        // SwiftUI bug (as of 13.4)? the location is supposed to be in our coordinate system
+                        // however, the y coordinate appears to be in the global coordinate system
+                        location = CGPoint(x: targetLocation.x, y: geometry.convert(targetLocation, from: .global).y)
+                    }
                     location = CGPoint(x: location.x - geometry.size.width/2, y: location.y - geometry.size.height/2)
                     location = CGPoint(x: location.x - self.panOffset.width, y: location.y - self.panOffset.height)
                     location = CGPoint(x: location.x / self.zoomScale, y: location.y / self.zoomScale)
